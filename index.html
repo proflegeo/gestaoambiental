@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador: Gestão Ambiental</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&family=Roboto:wght@400;700&display=swap');
+        
+        body { font-family: 'Roboto', sans-serif; background: linear-gradient(135deg, #132a13 0%, #31572c 100%); color: #f5f6fa; text-align: center; margin: 0; padding: 20px; min-height: 100vh; position: relative; }
+        h1 { font-family: 'Montserrat', sans-serif; color: #a7c957; text-transform: uppercase; margin-bottom: 5px; letter-spacing: 2px; }
+        
+        #game-screen { display: none; padding-bottom: 80px; }
+        #start-screen { margin-top: 10vh; background: rgba(0, 0, 0, 0.5); padding: 50px; border-radius: 15px; display: inline-block; border: 2px solid #a7c957; box-shadow: 0 0 30px rgba(167, 201, 87, 0.2); }
+        #start-screen input { padding: 15px; font-size: 20px; border-radius: 8px; border: none; margin-bottom: 20px; width: 80%; text-align: center; font-family: 'Roboto', sans-serif; }
+        
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 100; align-items: center; justify-content: center; overflow-y: auto; padding: 20px; box-sizing: border-box;}
+        .modal-content { background: #bc4749; padding: 40px; border-radius: 15px; box-shadow: 0 0 40px rgba(188, 71, 73, 0.8); max-width: 700px; width: 100%; }
+        .modal-content.feedback { background: #386641; border: 2px solid #a7c957; box-shadow: 0 0 40px rgba(167, 201, 87, 0.4); }
+        .modal-content.reeleicao { background: #f2e8cf; box-shadow: 0 0 40px rgba(242, 232, 207, 0.6); color: #132a13; }
+        
+        .modal-content h2 { font-family: 'Montserrat', sans-serif; font-size: 32px; margin-top: 0; }
+        .modal-content p { font-size: 20px; font-weight: bold; margin-bottom: 15px; }
+        
+        #pergunta-crise { font-size: 18px; font-weight: normal; color: #f5f6fa; margin-bottom: 15px; text-align: left; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border-left: 4px solid #fbc531;}
+        #resposta-crise { width: 100%; padding: 15px; border-radius: 8px; border: 2px solid #132a13; background: rgba(0,0,0,0.4); color: white; font-family: 'Roboto', sans-serif; font-size: 16px; box-sizing: border-box; resize: vertical; margin-bottom: 10px;}
+        #resposta-crise:focus { outline: none; border-color: #a7c957; background: rgba(0,0,0,0.7); }
+        
+        .hud { display: flex; justify-content: center; flex-wrap: wrap; gap: 30px; background: rgba(0, 0, 0, 0.5); padding: 20px; border-radius: 10px; max-width: 900px; margin: 0 auto 20px auto; border: 1px solid #4f772d; }
+        .stat { font-size: 20px; font-weight: bold; }
+        .stat span { color: #f2e8cf; font-family: 'Montserrat', sans-serif; font-size: 24px; }
+        
+        #approval-bar { width: 150px; height: 15px; background: #bc4749; display: inline-block; margin-left: 10px; border-radius: 8px; overflow: hidden; vertical-align: middle; }
+        #approval-fill { height: 100%; width: 50%; background: #6a994e; transition: width 0.3s ease, background 0.3s ease; }
+        
+        #fase-info { font-size: 22px; color: #a7c957; font-weight: bold; margin-bottom: 20px; text-transform: uppercase;}
+        
+        .game-board { display: flex; justify-content: center; gap: 20px; margin: 30px 0; flex-wrap: wrap; }
+        .slot-container { display: flex; flex-direction: column; align-items: center; }
+        .slot-container h3 { color: #f2e8cf; font-size: 16px; text-transform: uppercase; margin-bottom: 10px; background: rgba(0,0,0,0.6); padding: 6px 15px; border-radius: 5px; border-bottom: 2px solid #a7c957;}
+        
+        .drop-zone { width: 240px; height: 150px; background-color: rgba(255, 255, 255, 0.05); border: 3px dashed #a7c957; border-radius: 12px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease; padding: 15px; box-sizing: border-box; text-align: center; font-size: 16px; color: #a7c957; font-weight: bold; }
+        .drop-zone.over { background-color: rgba(167, 201, 87, 0.2); transform: scale(1.05); }
+        .drop-zone.success { border-color: #6a994e; box-shadow: 0 0 20px rgba(106, 153, 78, 0.5); background-color: rgba(106, 153, 78, 0.2); color: white;}
+        
+        .card-bank { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin-top: 20px; padding: 25px; background: rgba(0, 0, 0, 0.3); border-radius: 15px; border: 1px solid #4f772d; }
+        .card { background: linear-gradient(135deg, #386641 0%, #4f772d 100%); color: white; padding: 15px; border-radius: 10px; cursor: grab; width: 220px; font-size: 16px; font-weight: bold; box-shadow: 0 6px 15px rgba(0,0,0,0.5); user-select: none; display: flex; align-items: center; justify-content: center; text-align: center; border: 2px solid #a7c957; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(167, 201, 87, 0.4); border-color: #f2e8cf; }
+        
+        .btn { background: linear-gradient(135deg, #6a994e 0%, #386641 100%); color: white; border: none; padding: 15px 30px; font-family: 'Montserrat', sans-serif; font-size: 18px; border-radius: 8px; cursor: pointer; font-weight: bold; text-transform: uppercase; transition: all 0.3s ease; }
+        .btn:hover { transform: scale(1.05); box-shadow: 0 5px 15px rgba(106, 153, 78, 0.6); }
+        .btn:disabled { background: #7f8fa6; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-dark { background: #132a13; color: #f2e8cf; border: 2px solid #a7c957; width: 100%; margin-top: 10px;}
+        .btn-dark:hover { background: #a7c957; color: #132a13; }
+        
+        .btn-container { margin-top: 30px; display: flex; justify-content: center; gap: 20px; height: 60px; }
+        #btn-next { background: linear-gradient(135deg, #f1c40f 0%, #f39c12 100%); display: none; color: #132a13;}
+        #btn-restart { background: linear-gradient(135deg, #bc4749 0%, #902923 100%); display: none; margin: 20px auto; }
+        #btn-end { background: linear-gradient(135deg, #8e44ad 0%, #9b59b6 100%); margin-top: 40px; font-size: 14px; padding: 12px 25px; }
+        
+        #message { margin-top: 25px; font-size: 24px; font-weight: bold; min-height: 40px; text-transform: uppercase; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25%, 75% { transform: translateX(-10px); } 50% { transform: translateX(10px); } }
+        .shake { animation: shake 0.4s ease-in-out; }
+        
+        #ranking-container { display: none; margin: 30px auto; max-width: 600px; background: rgba(0, 0, 0, 0.7); padding: 25px; border-radius: 12px; border: 2px solid #a7c957; box-shadow: 0 0 20px rgba(167, 201, 87, 0.3); }
+        #ranking-container h3 { font-family: 'Montserrat', sans-serif; color: #a7c957; margin-top: 0; font-size: 24px;}
+        .ranking-table { width: 100%; text-align: left; border-collapse: collapse; font-size: 18px; }
+        .ranking-table th { border-bottom: 2px solid #6a994e; padding: 10px; color: #a7c957; }
+        .ranking-table td { padding: 10px; border-bottom: 1px solid #4f772d; }
+        .ranking-table tr:hover { background: rgba(255,255,255,0.05); }
+
+        .watermark { position: fixed; bottom: 15px; right: 20px; color: rgba(255, 255, 255, 0.3); font-family: 'Montserrat', sans-serif; font-size: 14px; text-decoration: none; transition: color 0.3s; z-index: 1000; }
+        .watermark:hover { color: #a7c957; }
+    </style>
+</head>
+<body>
+
+    <div id="start-screen">
+        <h1 style="font-size: 40px; margin-bottom: 20px;">🌍 GESTÃO AMBIENTAL</h1>
+        <p style="font-size: 22px; margin-bottom: 30px;">O simulador oficial para Resolução de Conflitos Ecológicos.</p>
+        <input type="text" id="player-name" placeholder="Secretário(a) do Meio Ambiente" autocomplete="off">
+        <br><button class="btn" id="btn-iniciar" onclick="startGame()" disabled>CONECTANDO AO IBAMA...</button>
+    </div>
+
+    <div class="modal-overlay" id="modal-crise">
+        <div class="modal-content" id="crise-container">
+            <h2>🚨 DESASTRE AMBIENTAL!</h2>
+            <p id="texto-crise"></p>
+            <div id="pergunta-crise"></div>
+            <textarea id="resposta-crise" rows="4" placeholder="Redija o Parecer Técnico contendo conceitos geográficos e planos de contenção..."></textarea>
+            <div id="erro-crise" style="color: #f2e8cf; font-size: 16px; display: none; text-align: left; margin-bottom: 15px;">⚠️ Seu parecer está muito vazio. Detalhe as medidas de mitigação!</div>
+            <button class="btn btn-dark" onclick="avaliarDecreto()">Publicar Parecer Técnico</button>
+        </div>
+    </div>
+    
+    <div class="modal-overlay" id="modal-feedback">
+        <div class="modal-content feedback">
+            <h2>📊 AVALIAÇÃO DO PARECER</h2>
+            <p id="texto-feedback"></p>
+            <div id="status-feedback" style="font-size: 18px; color: #f2e8cf; margin-bottom: 20px;"></div>
+            <button class="btn btn-dark" onclick="fecharModalFeedback()">Voltar ao Planejamento</button>
+        </div>
+    </div>
+    
+    <div class="modal-overlay" id="modal-reeleicao">
+        <div class="modal-content reeleicao">
+            <h2>🏆 PREMIAÇÃO INTERNACIONAL!</h2>
+            <p>100% de Aprovação Popular e da Comunidade Científica.</p>
+            <p>Sua secretaria recebeu fundos extras! Bônus: +1000 Pontos.</p>
+            <button class="btn btn-dark" onclick="fecharModal('modal-reeleicao')">Iniciar Nova Gestão</button>
+        </div>
+    </div>
+
+    <div id="game-screen">
+        <h1>Planejamento Ambiental</h1>
+        <div class="hud">
+            <div class="stat">Aprovação: <div id="approval-bar"><div id="approval-fill"></div></div> <span id="approval-text">50%</span></div>
+            <div class="stat">Pontos ECO: <span id="score-display">0</span></div>
+            <div class="stat">Combo: <span id="combo-display">x1</span></div>
+        </div>
+        <div id="fase-info">Analisando Bioma...</div>
+
+        <div class="game-board" id="game-board">
+            <div class="slot-container"><h3>1. Causa Base</h3><div class="drop-zone" id="zone-causa" data-type="causa">Arraste a Causa</div></div>
+            <div class="slot-container"><h3>2. Problema Atual</h3><div class="drop-zone" id="zone-problema" data-type="problema">Arraste o Problema</div></div>
+            <div class="slot-container"><h3>3. Consequência</h3><div class="drop-zone" id="zone-consequencia" data-type="consequencia">Arraste a Consequência</div></div>
+            <div class="slot-container"><h3>4. Solução Sustentável</h3><div class="drop-zone" id="zone-solucao" data-type="solucao">Arraste a Solução</div></div>
+        </div>
+
+        <div class="btn-container">
+            <button class="btn" onclick="checkAnswers()" id="btn-check">Aprovar Plano de Ação</button>
+            <button class="btn" id="btn-next" onclick="processarProximaFase()">Próximo Desafio ➡️</button>
+        </div>
+        
+        <div id="message"></div>
+        <div id="ranking-container"></div>
+        <button class="btn" id="btn-restart" onclick="location.reload()">Iniciar Nova Gestão 🔄</button>
+        
+        <div class="card-bank" id="card-bank"></div>
+        
+        <button class="btn" id="btn-end" onclick="confirmarFimMandato()">🛑 Entregar Relatório Final (Encerrar)</button>
+    </div>
+    
+    <a href="https://legeo.com.br" target="_blank" class="watermark">legeo.com.br</a>
+
+    <script>
+        // LINK DO GOOGLE APPS SCRIPT INCORPORADO
+        const urlDoGoogleScript = "https://script.google.com/macros/s/AKfycbyUnewMn8J-3uUXQCIeFifQXxrzQIWVjgI_D4N4wwT2_u3Ko5onFQVGcVKchPaL-1WutQ/exec";
+
+        let cenarios = []; let eventosInesperados = [];
+        let nomePrefeito = ""; let faseAtual = 0; let score = 0; let combo = 1; let approval = 50; 
+        let cartoesAtuais = []; let mandatoAtual = 1; let historicoDecretos = ""; let eventoSorteadoAtual = null;
+
+        window.onload = async () => {
+            const btnIniciar = document.getElementById('btn-iniciar');
+            try {
+                const resposta = await fetch(urlDoGoogleScript);
+                const dados = await resposta.json();
+                cenarios = dados.cenarios; eventosInesperados = dados.crises;
+                btnIniciar.innerText = "ASSUMIR SECRETARIA"; btnIniciar.disabled = false;
+            } catch(erro) {
+                console.error(erro); btnIniciar.innerText = "Erro de Conexão";
+                alert("Atenção: A base de dados da planilha não respondeu. Verifique se o Script está publicado como 'Qualquer Pessoa'.");
+            }
+        };
+
+        function startGame() {
+            if(cenarios.length === 0) return alert("Banco de dados ambiental vazio!");
+            nomePrefeito = document.getElementById('player-name').value.trim() || "Especialista";
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+            embaralhar(cenarios); atualizarHUD(); carregarFase();
+        }
+
+        function atualizarHUD() {
+            approval = Math.max(0, Math.min(100, approval));
+            document.getElementById('score-display').innerText = score;
+            document.getElementById('combo-display').innerText = `x${combo}`;
+            document.getElementById('approval-text').innerText = `${approval}%`;
+            const fill = document.getElementById('approval-fill'); fill.style.width = `${approval}%`;
+            fill.style.background = approval > 70 ? '#6a994e' : approval > 30 ? '#f39c12' : '#bc4749';
+        }
+
+        function carregarFase() {
+            if (faseAtual >= cenarios.length) { document.getElementById('fase-info').innerText = "🌱 PROJETOS CONCLUÍDOS!"; finalizarJogo(); return; }
+            const cenario = cenarios[faseAtual];
+            document.getElementById('fase-info').innerText = `Mesa do(a) Secretário(a) ${nomePrefeito} | Pauta #${faseAtual + 1}: ${cenario.tema}`;
+            document.getElementById('message').innerText = ""; document.getElementById('btn-next').style.display = 'none'; document.getElementById('btn-check').style.display = 'block';
+            
+            const zonasTextos = ['Arraste a Causa', 'Arraste o Problema', 'Arraste a Consequência', 'Arraste a Solução'];
+            ['causa', 'problema', 'consequencia', 'solucao'].forEach((tipo, index) => {
+                const zone = document.getElementById(`zone-${tipo}`); zone.innerHTML = zonasTextos[index]; zone.classList.remove('over', 'success');
+            });
+
+            cartoesAtuais = [
+                { id: `c-${faseAtual}-1`, tipo: 'causa', texto: cenario.causa }, { id: `c-${faseAtual}-2`, tipo: 'problema', texto: cenario.problema },
+                { id: `c-${faseAtual}-3`, tipo: 'consequencia', texto: cenario.consequencia }, { id: `c-${faseAtual}-4`, tipo: 'solucao', texto: cenario.solucao }
+            ];
+            embaralhar(cartoesAtuais); renderizarCartas();
+        }
+
+        function renderizarCartas() {
+            const cardBank = document.getElementById('card-bank'); cardBank.innerHTML = '';
+            cartoesAtuais.forEach(cartao => {
+                const div = document.createElement('div'); div.className = 'card'; div.draggable = true; div.id = cartao.id;
+                div.dataset.type = cartao.tipo; div.innerText = cartao.texto;
+                div.addEventListener('dragstart', dragStart); div.addEventListener('dragend', dragEnd);
+                cardBank.appendChild(div);
+            });
+        }
+
+        function embaralhar(array) { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [array[i], array[j]] = [array[j], array[i]]; } }
+        function dragStart(e) { e.dataTransfer.setData('text/plain', e.target.id); setTimeout(() => { e.target.style.opacity = '0.4'; }, 0); }
+        function dragEnd(e) { e.target.style.opacity = '1'; }
+        
+        document.querySelectorAll('.drop-zone').forEach(zone => {
+            zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('over'); });
+            zone.addEventListener('dragleave', () => { zone.classList.remove('over'); });
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault(); zone.classList.remove('over');
+                const draggable = document.getElementById(e.dataTransfer.getData('text/plain')); if (!draggable) return;
+                const cartaExistente = zone.querySelector('.card'); if (cartaExistente) document.getElementById('card-bank').appendChild(cartaExistente);
+                if(zone.innerText.includes("Arraste")) zone.innerHTML = '';
+                zone.appendChild(draggable);
+            });
+        });
+
+        const cardBank = document.getElementById('card-bank');
+        cardBank.addEventListener('dragover', (e) => e.preventDefault());
+        cardBank.addEventListener('drop', (e) => { e.preventDefault(); const draggable = document.getElementById(e.dataTransfer.getData('text/plain')); if (draggable) cardBank.appendChild(draggable); });
+
+        function checkAnswers() {
+            const zones = ['causa', 'problema', 'consequencia', 'solucao'];
+            let allCorrect = true; let filled = true;
+            zones.forEach(zoneType => {
+                const card = document.getElementById(`zone-${zoneType}`).querySelector('.card');
+                if (!card) filled = false; else if (card.getAttribute('data-type') !== zoneType) allCorrect = false;
+            });
+
+            const msgDiv = document.getElementById('message'); const gameBoard = document.getElementById('game-board');
+            if (!filled) { msgDiv.style.color = '#f1c40f'; msgDiv.innerText = "⚠️ Relatório incompleto! Preencha todas as etapas."; return; } 
+            
+            if (allCorrect) {
+                let pontosGanhos = 100 * combo; score += pontosGanhos; combo++; approval += 15;
+                msgDiv.style.color = '#a7c957'; msgDiv.innerText = `✅ Política Aprovada! (+${pontosGanhos} pts)`;
+                zones.forEach(z => document.getElementById(`zone-${z}`).classList.add('success'));
+                document.getElementById('btn-check').style.display = 'none'; document.getElementById('btn-next').style.display = 'block';
+                verificarReeleicao();
+            } else {
+                combo = 1; approval -= 15; gameBoard.classList.remove('shake'); void gameBoard.offsetWidth; gameBoard.classList.add('shake');
+                if (approval <= 0) {
+                    approval = 0; atualizarHUD(); msgDiv.style.color = '#bc4749'; msgDiv.innerText = "🚨 EXONERAÇÃO! Os danos ambientais foram irreversíveis.";
+                    document.getElementById('btn-check').style.display = 'none'; setTimeout(finalizarJogo, 3000); return;
+                }
+                msgDiv.style.color = '#bc4749'; msgDiv.innerText = "❌ Estratégia ineficaz! O impacto ambiental aumentou.";
+            }
+            atualizarHUD();
+        }
+
+        function verificarReeleicao() { if (approval >= 100) { score += 1000; approval = 80; mandatoAtual++; document.getElementById('modal-reeleicao').style.display = 'flex'; atualizarHUD(); } }
+
+        function processarProximaFase() {
+            faseAtual++;
+            if (Math.random() <= 0.30 && faseAtual < cenarios.length && eventosInesperados.length > 0) {
+                eventoSorteadoAtual = eventosInesperados[Math.floor(Math.random() * eventosInesperados.length)];
+                approval += eventoSorteadoAtual.punicaoInicial; atualizarHUD();
+                document.getElementById('texto-crise').innerText = eventoSorteadoAtual.texto; document.getElementById('pergunta-crise').innerText = eventoSorteadoAtual.pergunta;
+                document.getElementById('resposta-crise').value = ""; document.getElementById('erro-crise').style.display = "none";
+                document.getElementById('modal-crise').style.display = 'flex';
+            } else { carregarFase(); }
+        }
+
+        function avaliarDecreto() {
+            const textoResposta = document.getElementById('resposta-crise').value.trim(); const erroDiv = document.getElementById('erro-crise');
+            if (textoResposta.length < 20) { erroDiv.style.display = "block"; return; }
+            erroDiv.style.display = "none"; historicoDecretos += `[Pauta ${faseAtual}] ${textoResposta} | `;
+
+            const textoMin = textoResposta.toLowerCase(); let acertos = 0; let palavrasEncontradas = [];
+            eventoSorteadoAtual.palavrasChave.forEach(palavra => { if(textoMin.includes(palavra)) { acertos++; palavrasEncontradas.push(palavra); } });
+
+            const feedbackTexto = document.getElementById('texto-feedback'); const feedbackStatus = document.getElementById('status-feedback');
+            if (acertos === 0) { feedbackTexto.innerText = "❌ Parecer superficial! Faltou embasamento técnico."; feedbackTexto.style.color = "#bc4749"; feedbackStatus.innerText = "Nenhum termo técnico estratégico encontrado."; } 
+            else if (acertos === 1) { approval += 15; score += 50; feedbackTexto.innerText = "⚠️ Parecer aceitável, mas requer revisão futura."; feedbackTexto.style.color = "#f39c12"; feedbackStatus.innerText = `Solução parcial: ${palavrasEncontradas[0]}.`; } 
+            else { approval += 30; score += 200; feedbackTexto.innerText = "✅ Parecer Científico Execelente!"; feedbackTexto.style.color = "#a7c957"; feedbackStatus.innerText = `Termos empregados: ${palavrasEncontradas.join(', ')}.`; }
+
+            atualizarHUD(); document.getElementById('modal-crise').style.display = 'none'; document.getElementById('modal-feedback').style.display = 'flex';
+        }
+
+        function fecharModalFeedback() { document.getElementById('modal-feedback').style.display = 'none'; if (approval <= 0) { document.getElementById('message').style.color = '#bc4749'; document.getElementById('message').innerText = "🚨 COLAPSO AMBIENTAL! Sua gestão foi afastada pelo Ministério Público."; setTimeout(finalizarJogo, 2000); } else { carregarFase(); } }
+        function fecharModal(idModal) { document.getElementById(idModal).style.display = 'none'; carregarFase(); }
+
+        function confirmarFimMandato() {
+            if(confirm("Tem certeza que deseja encerrar a sua gestão ambiental agora? Os relatórios técnicos serão arquivados.")) {
+                finalizarJogo();
+            }
+        }
+
+        function finalizarJogo() {
+            document.getElementById('card-bank').innerHTML = ""; document.querySelector('.game-board').style.display = 'none'; document.getElementById('btn-check').style.display = 'none'; document.getElementById('btn-next').style.display = 'none'; document.getElementById('btn-end').style.display = 'none';
+            let statusFinal = approval > 0 ? "Fim da Gestão Sustentável" : "Gestão Afastada";
+            const msgDiv = document.getElementById('message');
+            msgDiv.style.color = '#a7c957';
+            msgDiv.innerHTML = `${statusFinal} <br> Secretário(a): ${nomePrefeito} <br> Pontuação ECO Final: ${score} <br><br><span style="color: #f2e8cf; font-size: 18px;">Auditando dados ambientais... ⏳</span>`;
+
+            let dadosParaPlanilha = { nome: nomePrefeito, pontuacao: score, mandatos: mandatoAtual, aprovacao: approval, respostas: historicoDecretos };
+            
+            fetch(urlDoGoogleScript, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dadosParaPlanilha) })
+            .then(() => { 
+                msgDiv.innerHTML += `<br><span style="color: #f1c40f; font-size: 18px;">✅ Auditoria finalizada! Calculando o Ranking de Sustentabilidade...</span>`; 
+                
+                setTimeout(() => {
+                    fetch(urlDoGoogleScript + "?action=ranking")
+                    .then(res => res.json())
+                    .then(rankingData => mostrarRanking(rankingData))
+                    .catch(e => console.error("Erro ao puxar ranking", e));
+                }, 2000);
+            })
+            .catch(e => console.error(e));
+        }
+
+        function mostrarRanking(rankingData) {
+            const container = document.getElementById('ranking-container');
+            let html = "<h3>🌎 GESTÕES MAIS SUSTENTÁVEIS</h3><table class='ranking-table'>";
+            html += "<tr><th>Pos</th><th>Secretário(a) / Equipe</th><th>Pontos ECO</th></tr>";
+            
+            rankingData.forEach((r, idx) => {
+                let medalha = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : (idx + 1 + "º");
+                html += `<tr><td>${medalha}</td><td>${r.nome}</td><td>${r.pontuacao}</td></tr>`;
+            });
+            
+            html += "</table>";
+            container.innerHTML = html;
+            container.style.display = 'block';
+            document.getElementById('message').style.display = 'none'; 
+            document.getElementById('btn-restart').style.display = 'inline-block';
+        }
+
+        const textareaCrise = document.getElementById('resposta-crise');
+        textareaCrise.addEventListener('paste', function(e) {
+            e.preventDefault();
+            alert("🚨 Fiscalização Ativada! Para garantir a originalidade do parecer técnico, a digitação deve ser manual.");
+        });
+        textareaCrise.addEventListener('drop', function(e) { e.preventDefault(); });
+
+    </script>
+</body>
+</html>
