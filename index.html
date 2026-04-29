@@ -212,22 +212,54 @@
         async function avaliarDecreto() {
             const resp = document.getElementById('resposta-crise').value;
             if (resp.length < 15) return alert("O parecer deve ser mais detalhado.");
+            
             const btn = document.querySelector('#modal-crise .btn');
             btn.innerText = "AUDITANDO..."; btn.disabled = true;
+
             try {
                 const res = await fetch(urlDoGoogleScript, {
-                    method: 'POST', headers: { 'Content-Type': 'text/plain' },
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
                     body: JSON.stringify({ action: "evaluateAI", pergunta: evSorteado.pergunta, resposta: resp, gabarito: evSorteado.gabarito })
                 });
-                let analise = await res.json();
-                if (typeof analise === 'string') {
-                    let textoLimpo = analise.replace(/```json/g, "").replace(/```/g, "").trim();
-                    analise = JSON.parse(textoLimpo);
+                
+                // 1. Recebemos TUDO como texto puro primeiro
+                let rawData = await res.text(); 
+                let analise;
+                
+                try {
+                    analise = JSON.parse(rawData);
+                } catch(e) {
+                    analise = rawData; 
                 }
+
                 if (analise.erro) throw new Error(analise.erro);
-                let notaFinal = analise.nota ?? analise.Nota ?? 50;
-                let feedbackFinal = analise.feedback ?? analise.Feedback ?? "Parecer processado tecnicamente.";
+                
+                let notaFinal = 50;
+                let feedbackFinal = "Parecer processado tecnicamente.";
+
+                // 2. O EXTRATOR MÁGICO: Busca cirurgicamente apenas o que está entre { e }
+                let textoParaAnalisar = typeof analise === 'string' ? analise : JSON.stringify(analise);
+                let inicioJson = textoParaAnalisar.indexOf('{');
+                let fimJson = textoParaAnalisar.lastIndexOf('}');
+                
+                if (inicioJson !== -1 && fimJson !== -1) {
+                    let jsonCortado = textoParaAnalisar.substring(inicioJson, fimJson + 1);
+                    try {
+                        let objetoLimpo = JSON.parse(jsonCortado);
+                        // Tenta extrair a nota, aceitando variações que a IA possa usar
+                        notaFinal = objetoLimpo.nota ?? objetoLimpo.Nota ?? objetoLimpo.score ?? 50;
+                        // Tenta extrair o feedback
+                        feedbackFinal = objetoLimpo.feedback ?? objetoLimpo.Feedback ?? objetoLimpo.comentario ?? textoParaAnalisar;
+                    } catch(e) {
+                        feedbackFinal = textoParaAnalisar; // Se o corte falhar, mostra o texto cru para o aluno ler
+                    }
+                } else {
+                    feedbackFinal = textoParaAnalisar; // Se não tiver chaves na resposta, exibe tudo o que a IA falou
+                }
+                
                 historico += `[Crise ${faseAtual}] ${resp} (Nota: ${notaFinal}) | `;
+                
                 if (notaFinal > 60) { 
                     score += 200; approval += 20; 
                     document.getElementById('texto-feedback').innerText = "✅ PARECER VALIDADO!"; 
@@ -237,6 +269,7 @@
                     document.getElementById('texto-feedback').innerText = "❌ PARECER INSUFICIENTE!"; 
                     document.getElementById('texto-feedback').style.color = "#bc4749";
                 }
+
                 document.getElementById('status-feedback').innerText = `Nota de Conformidade: ${notaFinal}/100. \n\nParecer da Auditoria:\n"${feedbackFinal}"`;
             } catch (e) { 
                 document.getElementById('texto-feedback').innerText = "⚠️ MODO OFFLINE";
@@ -244,10 +277,12 @@
                 document.getElementById('status-feedback').innerText = `Aviso do Sistema: Auditoria instável.\n\nPara sua referência, a medida esperada era:\n"${evSorteado.gabarito}"`; 
                 approval += 5; 
             }
+
             document.getElementById('modal-crise').style.display = 'none';
             document.getElementById('modal-feedback').style.display = 'flex';
             btn.innerText = "Publicar Parecer Oficial"; btn.disabled = false;
             atualizarHUD();
+        }
         }
 
         function fecharFeedback() {
